@@ -1,6 +1,6 @@
 # --
 # Kernel/System/CloneDB/Driver/Base.pm - Clone DB backend functions
-# Copyright (C) 2001-2014 OTRS AG, http://otrs.com/
+# Copyright (C) 2001-2015 OTRS AG, http://otrs.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -233,7 +233,7 @@ sub DataTransfer {
         # if needed, set pre-requisites
         if (
             $Param{TargetDBBackend}->can('SetPreRequisites')
-            && grep { $_ eq 'id' } @Columns
+            && grep { lc($_) eq 'id' } @Columns
             && !$Param{DryRun}
             )
         {
@@ -362,7 +362,7 @@ sub DataTransfer {
         # if needed, reset the autoincremental field
         if (
             $Param{TargetDBBackend}->can('ResetAutoIncrementField')
-            && grep { $_ eq 'id' } @Columns
+            && grep { lc($_) eq 'id' } @Columns
             )
         {
 
