@@ -14,6 +14,9 @@ use warnings;
 use base qw(Kernel::System::Console::BaseCommand);
 
 our @ObjectDependencies = (
+    'Kernel::Config',
+    'Kernel::System::CloneDB::Backend',
+    'Kernel::System::DB',
 );
 
 sub Configure {
@@ -83,11 +86,11 @@ sub Run {
     my $DryRun;
 
     if ( $CloneMode eq 'real' ) {
-       $Self->{CloneDBBackendObject}->PopulateTargetStructuresPre(
+        $Self->{CloneDBBackendObject}->PopulateTargetStructuresPre(
             TargetDBObject => $Self->{TargetDBObject},
         );
     }
-    else{
+    else {
         $DryRun = 1;
     }
 
@@ -102,7 +105,7 @@ sub Run {
             Force          => $Self->GetOption('force') || '',
         );
 
-        if ( !$DataTransferResult ){
+        if ( !$DataTransferResult ) {
             $Self->PrintError("Aborting because it is not possible to complete the data transfer.");
             return $Self->ExitCodeError();
         }

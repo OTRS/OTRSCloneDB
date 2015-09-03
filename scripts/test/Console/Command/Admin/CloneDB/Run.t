@@ -25,7 +25,7 @@ $Self->Is(
 );
 
 # check command with '--mode dry' option
-my $ExitCode = $CommandObject->Execute('--mode', 'dry');
+$ExitCode = $CommandObject->Execute( '--mode', 'dry' );
 
 $Self->Is(
     $ExitCode,
@@ -33,9 +33,8 @@ $Self->Is(
     "Admin::CloneDB::Run --mode dry option",
 );
 
-
 # check command with '--mode real --force' options
-my $ExitCode = $CommandObject->Execute('--mode', 'real', '--force');
+$ExitCode = $CommandObject->Execute( '--mode', 'real', '--force' );
 
 $Self->Is(
     $ExitCode,
