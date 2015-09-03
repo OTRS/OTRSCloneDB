@@ -39,16 +39,15 @@ sub Configure {
 
     $Self->AdditionalHelp(<<"EOF");
 
-<yellow>    This script clones an OTRS database into an empty target database, even
-    on another database platform. It will dynamically get the list of tables in the
-    source DB, and copy the data of each table to the target DB.
+<yellow>\tThis script clones an OTRS database into an empty target database, even
+\ton another database platform. It will dynamically get the list of tables in the
+\tsource DB, and copy the data of each table to the target DB.
 </yellow>
-<green>    --mode real: Clone the data into the target database.
-    --mode dry: Dry run mode, only read and verify, but don't write to the target database.
-    --force: Continue even if there are errors while writing the data.
+<green>\t--mode real: Clone the data into the target database.
+\t--mode dry: Dry run mode, only read and verify, but don't write to the target database.
+\t--force: Continue even if there are errors while writing the data.
 </green>
-<red>   Please note that you first need to configure the target database via SysConfig.
-</red>
+<red>\tPlease note that you first need to configure the target database via SysConfig.</red>
 EOF
 
     return;
