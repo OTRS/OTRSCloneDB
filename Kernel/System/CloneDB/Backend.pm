@@ -1,6 +1,5 @@
 # --
-# Kernel/System/CloneDB/Backend.pm - Interface for CloneDB backends
-# Copyright (C) 2001-2015 OTRS AG, http://otrs.com/
+# Copyright (C) 2001-2016 OTRS AG, http://otrs.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -434,7 +433,6 @@ sub PopulateTargetStructuresPost {
     $Self->PrintWithTime("Creating structures in target database (phase 2/2)");
 
     for my $Statement ( @{ $Self->{SQLPost} } ) {
-        next STATEMENT if $Statement =~ m{^INSERT}smxi;
         my $Result = $Param{TargetDBObject}->Do( SQL => $Statement );
         print '.';
         if ( !$Result ) {
