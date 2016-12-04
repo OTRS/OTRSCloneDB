@@ -1,5 +1,6 @@
 # --
-# Copyright (C) 2001-2016 OTRS AG, http://otrs.com/
+# Kernel/System/CloneDB/Driver/Base.pm - Clone DB backend functions
+# Copyright (C) 2001-2015 OTRS AG, http://otrs.com/
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -15,16 +16,6 @@ use Encode;
 use MIME::Base64;
 use Kernel::System::VariableCheck qw(:all);
 
-use Kernel::System::DB;
-
-our @ObjectDependencies = (
-    'Kernel::Config',
-    'Kernel::System::DB',
-    'Kernel::System::Encode',
-    'Kernel::System::Log',
-    'Kernel::System::Time',
-);
-
 =head1 NAME
 
 Kernel::System::CloneDB::Driver::Base - common backend functions
@@ -39,16 +30,8 @@ Kernel::System::CloneDB::Driver::Base - common backend functions
 
 =item new()
 
-    use Kernel::System::ObjectManager;
-    local $Kernel::OM = Kernel::System::ObjectManager->new();
-
-    $Kernel::OM->ObjectParamAdd(
-        'Kernel::System::CloneDB::Driver::Base' => {
-            BlobColumns => $BlobColumns,
-            CheckEncodingColumns => $CheckEncodingColumns,
-        },
-    );
-    my $CloneDBBaseObject = $Kernel::OM->Get('Kernel::System::CloneDB::Driver::Base');
+usually, you want to create an instance of this
+by using Kernel::System::CloneDB::Backend->new();
 
 =cut
 
@@ -61,12 +44,10 @@ sub new {
 
     # get needed objects
     for my $Needed (
-        qw(BlobColumns CheckEncodingColumns)
+        qw(ConfigObject EncodeObject LogObject MainObject TimeObject SourceDBObject BlobColumns CheckEncodingColumns)
         )
     {
-        if ( !$Param{$Needed} ) {
-            die "Got no $Needed!";
-        }
+        die "Got no $Needed!" if !$Param{$Needed};
 
         $Self->{$Needed} = $Param{$Needed};
     }
@@ -80,36 +61,35 @@ sub new {
 sub SanityChecks {
     my ( $Self, %Param ) = @_;
 
-    # return if dry run
+    # return is dry run
     return 1 if $Param{DryRun};
 
     # check needed stuff
-    if ( !$Param{TargetDBObject} ) {
-        $Kernel::OM->Get('Kernel::System::Log')->Log(
-            Priority => 'error',
-            Message  => "Need TargetDBObject!",
-        );
-        return;
+    for my $Needed (qw(TargetDBObject)) {
+        if ( !$Param{$Needed} ) {
+            $Self->{LogObject}->Log(
+                Priority => 'error',
+                Message  => "Need $Needed!"
+            );
+            return;
+        }
     }
 
-    # get source DB object
-    my $SourceDBObject = $Kernel::OM->Get('Kernel::System::DB');
-
     # verify DSN for Source and Target DB
-    if ( $SourceDBObject->{DSN} eq $Param{TargetDBObject}->{DSN} ) {
-        $Kernel::OM->Get('Kernel::System::Log')->Log(
+    if ( $Self->{SourceDBObject}->{DSN} eq $Param{TargetDBObject}->{DSN} ) {
+        $Self->{LogObject}->Log(
             Priority => 'error',
-            Message  => "Source and target database DSN are the same!",
+            Message  => "Source and target database DSN are the same!"
         );
         return;
     }
 
     # get skip tables settings
-    my $SkipTables = $Kernel::OM->Get('Kernel::Config')->Get('CloneDB::SkipTables');
+    my $SkipTables = $Self->{ConfigObject}->Get('CloneDB::SkipTables');
 
     # get a list of tables on Source DB
     my @Tables = $Self->TablesList(
-        DBObject => $SourceDBObject,
+        DBObject => $Self->{SourceDBObject},
     );
 
     TABLES:
@@ -129,18 +109,18 @@ sub SanityChecks {
 
         # table should exists
         if ( !defined $TargetRowCount ) {
-            $Kernel::OM->Get('Kernel::System::Log')->Log(
+            $Self->{LogObject}->Log(
                 Priority => 'error',
-                Message  => "Required table '$Table' does not seem to exist in the target database!",
+                Message  => "Required table '$Table' does not seem to exist in the target database!"
             );
             return;
         }
 
         # and be empty
         if ( $TargetRowCount > 0 ) {
-            $Kernel::OM->Get('Kernel::System::Log')->Log(
+            $Self->{LogObject}->Log(
                 Priority => 'error',
-                Message  => "Table '$Table' in the target database already contains data!",
+                Message  => "Table '$Table' in the target database already contains data!"
             );
             return;
         }
@@ -158,9 +138,9 @@ sub RowCount {
     # check needed stuff
     for my $Needed (qw(DBObject Table)) {
         if ( !$Param{$Needed} ) {
-            $Kernel::OM->Get('Kernel::System::Log')->Log(
+            $Self->{LogObject}->Log(
                 Priority => 'error',
-                Message  => "Need $Needed!",
+                Message  => "Need $Needed!"
             );
             return;
         }
@@ -189,32 +169,26 @@ sub DataTransfer {
     # check needed stuff
     for my $Needed (qw(TargetDBObject TargetDBBackend)) {
         if ( !$Param{$Needed} ) {
-            $Kernel::OM->Get('Kernel::System::Log')->Log(
+            $Self->{LogObject}->Log(
                 Priority => 'error',
-                Message  => "Need $Needed!",
+                Message  => "Need $Needed!"
             );
             return;
         }
     }
 
-    # get config object
-    my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
-
-    # get log file location
-    my $LogFile = $ConfigObject->Get('CloneDB::LogFile');
+    # get logfile location
+    my $LogFile = $Self->{ConfigObject}->Get('CloneDB::LogFile');
 
     # file handle
     my $FH;
 
     # get skip tables settings
-    my $SkipTables = $ConfigObject->Get('CloneDB::SkipTables');
-
-    # get Source db object
-    my $SourceDBObject = $Kernel::OM->Get('Kernel::System::DB');
+    my $SkipTables = $Self->{ConfigObject}->Get('CloneDB::SkipTables');
 
     # get a list of tables on Source DB
     my @Tables = $Self->TablesList(
-        DBObject => $SourceDBObject,
+        DBObject => $Self->{SourceDBObject},
     );
 
     TABLES:
@@ -226,30 +200,30 @@ sub DataTransfer {
         }
 
         if ( $Param{DryRun} ) {
-            $Self->PrintWithTime("Checking table $Table...\n");
+            $Self->PrintWithTime("Checking tableSSSSSS $Table...\n") if $Param{DryRun};
         }
         else {
-            $Self->PrintWithTime("Converting table $Table...\n");
+            $Self->PrintWithTime("Converting table $Table...\n")
         }
 
         # Get the list of columns of this table to be able to
         #   generate correct INSERT statements.
         my @Columns = $Self->ColumnsList(
             Table    => $Table,
-            DBObject => $SourceDBObject,
+            DBObject => $Self->{SourceDBObject},
         );
         my $ColumnsString = join( ', ', @Columns );
         my $BindString = join ', ', map {'?'} @Columns;
         my $SQL = "INSERT INTO $Table ($ColumnsString) VALUES ($BindString)";
 
         my $RowCount = $Self->RowCount(
-            DBObject => $SourceDBObject,
+            DBObject => $Self->{SourceDBObject},
             Table    => $Table,
         );
         my $Counter = 1;
 
         # Now fetch all the data and insert it to the target DB.
-        $SourceDBObject->Prepare(
+        $Self->{SourceDBObject}->Prepare(
             SQL => "
                SELECT $ColumnsString
                FROM $Table",
@@ -270,11 +244,8 @@ sub DataTransfer {
             );
         }
 
-        # get encode object
-        my $EncodeObject = $Kernel::OM->Get('Kernel::System::Encode');
-
         TABLEROW:
-        while ( my @Row = $SourceDBObject->FetchrowArray() ) {
+        while ( my @Row = $Self->{SourceDBObject}->FetchrowArray() ) {
 
             COLUMNVALUES:
             for my $ColumnCounter ( 1 .. $#Columns ) {
@@ -306,22 +277,21 @@ sub DataTransfer {
                         .
                         " $ColumnValue is replaced by : $TmpResult . \n\n";
 
-                    # open log file
+                    # open logfile
                     if ( !open $FH, '>>', $LogFile ) {    ## no critic
 
                         # print write error
                         print STDERR "\n Can't write $LogFile: $! \n";
-
                         return;
                     }
 
-                    # switch file handle to utf8 mode if utf-8 is used
+                    # switch filehandle to utf8 mode if utf-8 is used
                     binmode $FH, ':utf8';                 ## no critic
 
                     # write on log file
                     print $FH $ReplacementMessage;
 
-                    # close the file handle
+                    # close the filehandle
                     close $FH;
 
                     # set new vale on Row result from DB
@@ -348,22 +318,21 @@ sub DataTransfer {
             # If the two databases have different blob handling (base64), convert
             #   columns that need it.
             if (
-                $SourceDBObject->GetDatabaseFunction('DirectBlob')
+                $Self->{SourceDBObject}->GetDatabaseFunction('DirectBlob')
                 != $Param{TargetDBObject}->GetDatabaseFunction('DirectBlob')
                 )
             {
-                COLUMN:
                 for my $ColumnCounter ( 1 .. $#Columns ) {
                     my $Column = $Columns[$ColumnCounter];
 
-                    next COLUMN if ( !$Self->{BlobColumns}->{ lc "$Table.$Column" } );
+                    next if ( !$Self->{BlobColumns}->{ lc "$Table.$Column" } );
 
-                    if ( !$SourceDBObject->GetDatabaseFunction('DirectBlob') ) {
+                    if ( !$Self->{SourceDBObject}->GetDatabaseFunction('DirectBlob') ) {
                         $Row[$ColumnCounter] = decode_base64( $Row[$ColumnCounter] );
                     }
 
                     if ( !$Param{TargetDBObject}->GetDatabaseFunction('DirectBlob') ) {
-                        $EncodeObject->EncodeOutput( \$Row[$ColumnCounter] );
+                        $Self->{EncodeObject}->EncodeOutput( \$Row[$ColumnCounter] );
                         $Row[$ColumnCounter] = encode_base64( $Row[$ColumnCounter] );
                     }
 
@@ -372,9 +341,7 @@ sub DataTransfer {
             }
             my @Bind = map { \$_ } @Row;
 
-            if ( $Counter % 1000 == 0 ) {
-                print "    Inserting $Counter of $RowCount\n";
-            }
+            print "    Inserting $Counter of $RowCount\n" if $Counter % 1000 == 0;
 
             my $Success = $Param{TargetDBObject}->Do(
                 SQL  => $SQL,
@@ -392,7 +359,7 @@ sub DataTransfer {
         # in case dry run do nothing more
         next TABLES if $Param{DryRun};
 
-        # if needed, reset the auto-incremental field
+        # if needed, reset the autoincremental field
         if (
             $Param{TargetDBBackend}->can('ResetAutoIncrementField')
             && grep { lc($_) eq 'id' } @Columns
@@ -408,22 +375,20 @@ sub DataTransfer {
         $Self->PrintWithTime("Finished converting table $Table.\n");
     }
 
-    # if DryRun mode is activate, return a different value
+    # if DryRun mode is activate, return a diferent value
     return 2 if $Param{DryRun};
 
     return 1;
 }
 
-sub PrintWithTime {    ## no critic
+sub PrintWithTime {
     my $Self = shift;
 
-    my $TimeStamp = $Kernel::OM->Get('Kernel::System::Time')->SystemTime2TimeStamp(
-        SystemTime => $Kernel::OM->Get('Kernel::System::Time')->SystemTime(),
+    my $TimeStamp = $Self->{TimeObject}->SystemTime2TimeStamp(
+        SystemTime => $Self->{TimeObject}->SystemTime(),
     );
 
     print "[$TimeStamp] ", @_;
-
-    return 1;
 }
 
 1;
