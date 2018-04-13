@@ -227,7 +227,7 @@ sub DataTransfer {
             $Self->PrintWithTime("Checking table $Table...\n") if $Param{DryRun};
         }
         else {
-            $Self->PrintWithTime("Converting table $Table...\n")
+            $Self->PrintWithTime("Converting table $Table...\n");
         }
 
         # Get the list of columns of this table to be able to
