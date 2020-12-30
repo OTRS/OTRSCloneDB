@@ -339,6 +339,14 @@ sub DataTransfer {
                     # See also http://mathiasbynens.be/notes/mysql-utf8mb4.
                     $Row[$ColumnCounter] =~ s/([\x{10000}-\x{10FFFF}])/"\x{FFFD}"/eg;
                 }
+                
+                # Only for postgresql
+                if ( $Row[$ColumnCounter] && $Param{TargetDBObject}->{'DB::Type'} eq 'postgresql' ) {
+
+                    # Replace any unicode surrogates with the unicode replacement character.
+                    # See also https://stackoverflow.com/questions/44402799/invalid-utf8-characters-while-migrating-from-oracle-to-postgresql
+                    $Row[$ColumnCounter] =~ s/([\x{D800}-\x{DFFF}])/"\x{FFFD}"/eg;
+                }
 
             }
 
