@@ -304,7 +304,7 @@ sub DataTransfer {
                     my $ReplacementMessage =
                         "On table: $Table, column: $Column, id: $Row[0] - exists an invalid utf8 value. \n"
                         .
-                        " $ColumnValue is replaced by : $TmpResult . \n\n";
+                        "and we have replaced it with xFFFD\n\n";
 
                     # open log file
                     if ( !open $FH, '>>', $LogFile ) {    ## no critic
